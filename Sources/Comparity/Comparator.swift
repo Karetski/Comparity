@@ -7,7 +7,7 @@ public struct Comparator<Item> {
     public typealias ComparisonResultProvider<Item> = (Item, Item) throws -> Bool
     public typealias ParameterProvider<Item, Parameter : Comparable> = (Item) -> Parameter
 
-    /// Closure used to initialize comparator.
+    /// Closure that was used to initialize comparator.
     public let areInIncreasingOrder: ComparisonResultProvider<Item>
 
     /// Creates `Comparator` instance using the given predicate as the comparison between elements.
@@ -23,11 +23,11 @@ public struct Comparator<Item> {
     public init(chain comparators: [Comparator<Item>]) {
         self.init { left, right in
             for comparator in comparators {
-                guard let comparisonResult = try? comparator.areInIncreasingOrder(left, right) else {
+                do {
+                    return try comparator.areInIncreasingOrder(left, right)
+                } catch {
                     continue
                 }
-
-                return comparisonResult
             }
             return false
         }
