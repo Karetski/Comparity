@@ -1,4 +1,4 @@
-# Comparator
+# Comparity
 
 Simple and convenient comparator with multiple conditions.
 
