@@ -1,6 +1,6 @@
 # Comparity
 
-Simple and convenient comparator with multiple conditions.
+Simple and convenient comparator with multiple conditions support and conditions chaining.
 
 ## Installation
 
