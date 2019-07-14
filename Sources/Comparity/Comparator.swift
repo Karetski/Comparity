@@ -1,7 +1,8 @@
 /// Structure that describes comparison between items of type `Item` and contains various useful composing instruments.
 public struct Comparator<Item> {
-    public enum Error : Swift.Error {
-        case same
+    /// Error to be thrown when comparing values of the `Comparator` are the same.
+    public struct SameValueError : Swift.Error {
+        let value: Item
     }
 
     public typealias ComparisonResultProvider<Item> = (Item, Item) throws -> Bool
@@ -12,7 +13,7 @@ public struct Comparator<Item> {
 
     /// Creates `Comparator` instance using the given predicate as the comparison between elements.
     ///
-    /// - Parameter areInIncreasingOrder: A predicate that returns true if its first argument should be ordered before its second argument; otherwise, false. If elements comparison result is same, then should throw `Comparator.Error.same`
+    /// - Parameter areInIncreasingOrder: A predicate that returns true if its first argument should be ordered before its second argument; otherwise, false. If elements comparison result is same, then should throw `ComparatorValuesSameError`
     public init(_ areInIncreasingOrder: @escaping ComparisonResultProvider<Item>) {
         self.areInIncreasingOrder = areInIncreasingOrder
     }
@@ -44,7 +45,7 @@ public struct Comparator<Item> {
             let rightParameter = parameter(right)
 
             guard leftParameter != rightParameter else {
-                throw Error.same
+                throw SameValueError(value: left)
             }
 
             return isAscending ?

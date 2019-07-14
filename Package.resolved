@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Testament",
+        "repositoryURL": "https://github.com/Karetski/Testament.git",
+        "state": {
+          "branch": null,
+          "revision": "854c679523871225849ed9230c330b5c1582b58b",
+          "version": "2.0.1"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
