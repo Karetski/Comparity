@@ -1,83 +1,109 @@
-/// Structure that describes comparison between items of type `Item` and contains various useful composing instruments.
-public struct Comparator<Item> {
-    public enum Error : Swift.Error {
-        case same
-    }
 
-    public typealias ComparisonResultProvider<Item> = (Item, Item) throws -> Bool
-    public typealias ParameterProvider<Item, Parameter : Comparable> = (Item) -> Parameter
+// MARK: - Base
 
-    /// Closure that was used to initialize comparator.
-    public let areInIncreasingOrder: ComparisonResultProvider<Item>
+/// Enumeration used to indicate the way compared items are ordered.
+public enum ComparisonResult {
+    case ascending
+    case descending
+    case same
+}
 
-    /// Creates `Comparator` instance using the given predicate as the comparison between elements.
+/// Structure that describes comparison process between two items of type `Compared`.
+public struct Comparator<Compared> {
+    typealias CompareAction = (Compared, Compared) -> ComparisonResult
+
+    /// Comparison action that returns the `ComparisonResult`.
+    let compare: CompareAction
+
+    /// Basic initializer where `CompareAction` closure needs to be provided.
     ///
-    /// - Parameter areInIncreasingOrder: A predicate that returns true if its first argument should be ordered before its second argument; otherwise, false. If elements comparison result is same, then should throw `Comparator.Error.same`
-    public init(_ areInIncreasingOrder: @escaping ComparisonResultProvider<Item>) {
-        self.areInIncreasingOrder = areInIncreasingOrder
+    /// In general, it is enough to use one of existing convenient initializers so this shouldn't be used in most situations. But in case of some complex logic around the comparison process this is the right place to put it.
+    ///
+    /// - Parameter compare: Closure that contains comparison logic and returns the comparison result. It is recomended to use left-to-right rule while defining the comparison result.
+    init(compare: @escaping CompareAction) {
+        self.compare = compare
     }
+}
 
-    /// Composes multiple `Comparator` instances into chain by *left to right* principle.
+// MARK: - Inverted
+
+public extension Comparator {
+    /// Inverts all comparison results. For example, in case where the result of initial comparator is `.ascending` it will transform the result to `.descending`.
+    ///
+    /// - Returns: New `Comparator` instance that inverts all comparison results.
+    func inverted() -> Comparator<Compared> {
+        return Comparator { (lhs, rhs) in
+            switch self.compare(lhs, rhs) {
+            case .ascending:
+                return .descending
+            case .descending:
+                return .ascending
+            case .same:
+                return .same
+            }
+        }
+    }
+}
+
+// MARK: - Parametric
+
+public extension Comparator {
+    /// Creates comparator that compares items based on provided parameter.
+    /// - Parameter parameter: Closure used to get the parameter value.
+    init<Parameter: Comparable>(parameter: @escaping (Compared) -> Parameter) {
+        self.init { (lhs, rhs) in
+            let lhsParameter = parameter(lhs)
+            let rhsParameter = parameter(rhs)
+
+            guard lhsParameter != rhsParameter else {
+                return .same
+            }
+
+            return lhsParameter < rhsParameter ? .ascending : .descending
+        }
+    }
+}
+
+public extension Comparator where Compared: Comparable {
+    /// Creates comparator that compares items based on its value. Compared item needs to conform to `Comparable` protocol.
+    init() {
+        self.init { $0 }
+    }
+}
+
+// MARK: - Chaining
+
+public extension Comparator {
+    /// Composes multiple comparators instances into chain by *left to right* principle.
     ///
     /// - Parameter comparators: Array of `Comparator` instances used to create the chain.
-    public init(chain comparators: [Comparator<Item>]) {
-        self.init { left, right in
-            for comparator in comparators {
-                do {
-                    return try comparator.areInIncreasingOrder(left, right)
-                } catch {
+    init(chain: [Comparator<Compared>]) {
+        self.init { (lhs, rhs) in
+            for comparator in chain {
+                let result = comparator.compare(lhs, rhs)
+                switch result {
+                case .ascending, .descending:
+                    return result
+                case .same:
                     continue
                 }
             }
-            return false
+
+            return .same
         }
     }
 
-    /// Creates `Comparator` instance using `isAscending` flag and `parameter` to compare.
-    ///
-    /// - Parameters:
-    ///   - isAscending: Flag that describes sorting direction.
-    ///   - parameter: Closue used to get the parameter value.
-    public init<Parameter : Comparable>(isAscending: Bool, parameter: @escaping ParameterProvider<Item, Parameter>) {
-        self.init { left, right in
-            let leftParameter = parameter(left)
-            let rightParameter = parameter(right)
-
-            guard leftParameter != rightParameter else {
-                throw Error.same
-            }
-
-            return isAscending ?
-                leftParameter < rightParameter :
-                leftParameter > rightParameter
-        }
-    }
-}
-
-public extension Comparator {
-    func chaining(_ areInIncreasingOrder: @escaping ComparisonResultProvider<Item>) -> Comparator<Item> {
-        return Comparator<Item>(chain: [self, Comparator<Item>(areInIncreasingOrder)])
+    /// Adds comparator to the chain.
+    /// - Parameter comparator: `Comparator` instance used to be added to the chain.
+    /// - Returns: New `Comparator` instance including chained comparator.
+    func chaining(_ comparator: Comparator<Compared>) -> Comparator<Compared> {
+        return Comparator(chain: [self, comparator])
     }
 
-    func chaining(_ comparator: Comparator<Item>) -> Comparator<Item> {
-        return Comparator<Item>(chain: [self, comparator])
-    }
-
-    func chaining(_ comparators: [Comparator<Item>]) -> Comparator<Item> {
-        return Comparator<Item>(chain: [self] + comparators)
-    }
-
-    func chaining<Parameter : Comparable>(isAscending: Bool, parameter: @escaping ParameterProvider<Item, Parameter>) -> Comparator<Item> {
-        return Comparator<Item>(chain: [self, Comparator<Item>(isAscending: isAscending, parameter: parameter)])
-    }
-}
-
-public extension Sequence {
-    /// Returns the elements of the sequence, sorted using the given `Comparator`.
-    ///
-    /// - Parameter comparator: A `Comparator` that describes how elements should be compared during sorting.
-    /// - Returns: Sorted array of sequence's elements.
-    func sorted(by comparator: Comparator<Iterator.Element>) -> [Iterator.Element] {
-        return sorted { (try? comparator.areInIncreasingOrder($0, $1)) ?? false }
+    /// Adds an array of comparators to the chain.
+    /// - Parameter comparators: Array of `Comparator` instances used to be added to the chain.
+    /// - Returns: New `Comparator` instance including chained comparators.
+    func chaining(_ comparators: [Comparator<Compared>]) -> Comparator<Compared> {
+        return Comparator(chain: [self] + comparators)
     }
 }
