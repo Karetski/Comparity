@@ -1,3 +1,4 @@
+import Testament
 import XCTest
 
 @testable import Comparity
@@ -34,6 +35,9 @@ final class ComparatorTests: XCTestCase {
         ("testParameter", testParameter),
         ("testParameterOpaque", testParameterOpaque),
         ("testChaining", testChaining),
+        ("testChainingAdd", testChainingAdd),
+        ("testChainingAddArray", testChainingAddArray),
+        ("testInverted", testInverted),
     ]
 
     func testCompare() {
